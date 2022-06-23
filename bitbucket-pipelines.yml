@@ -1,0 +1,36 @@
+image: python:3.9
+pipelines:
+  branches:
+    '{master}':
+    - step:
+        name: Build and package
+        script:
+          - apt-get update && apt-get install -y zip python3-dev python3-pip
+          - mkdir build
+          - cp -r lambda_function.py build/.
+          - cp -r voodoo.py build/.
+          - python -V
+          - pip3 install --upgrade pip setuptools
+          - pip3 install -r requirements.txt -t build/.
+          - cd build
+          - zip -9qr build.zip .
+          - cd ..
+          - cp build/build.zip voodoo.zip
+        artifacts:
+          - voodoo.zip
+    - step:
+        name: Update Lambda code
+        script:
+          - pipe: atlassian/aws-lambda-deploy:1.5.0
+            variables:
+              AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+              AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+              AWS_DEFAULT_REGION: 'us-east-1'
+              FUNCTION_NAME: 'voodoo_search'
+              COMMAND: 'update'
+              ZIP_FILE: 'voodoo.zip'
+              STACK_PARAMETERS: > 
+                [{
+                  "ParameterKey": "Runtime",
+                  "ParameterValue": "python3.9",
+                }]
